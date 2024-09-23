@@ -1,5 +1,3 @@
-// PopularRestaurants.jsx
-
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './PopularRestaurants.css';
@@ -12,8 +10,10 @@ import {
   faChevronLeft,
   faChevronRight,
 } from '@fortawesome/free-solid-svg-icons';
-import {api} from '../../../config/config'
+import { api } from '../../../config/config';
 import { useAuthStore } from '../../../utils/store';
+import defaultImage from '../../../img/store.png';
+
 const PopularRestaurants = () => {
   const [koreanRestaurants, setKoreanRestaurants] = useState([]);
   const [chineseRestaurants, setChineseRestaurants] = useState([]);
@@ -27,12 +27,6 @@ const PopularRestaurants = () => {
 
   const serverURL = process.env.REACT_APP_SERVER_URL;
   const navigate = useNavigate();
-//   const [bookmark ,setbookmark] =useState({
-//     userId:'',
-//     storeSeq:'',
-//     photoId:'',
-//     storeSeq:''
-// });
 
   const fetchRestaurantPhotos = (storeSeq) => {
     return fetch(`${serverURL}/photos/store/${storeSeq}`, {
@@ -76,7 +70,8 @@ const PopularRestaurants = () => {
         const updatedData = await Promise.all(
           data.map(async (restaurant) => {
             const photos = await fetchRestaurantPhotos(restaurant.storeSeq);
-            return { ...restaurant, photos, isBookmarked: false };
+            const isBookmarked = await checkBookmark(restaurant.storeSeq); // 북마크 상태 확인
+            return { ...restaurant, photos, isBookmarked };
           })
         );
 
@@ -84,6 +79,21 @@ const PopularRestaurants = () => {
         setRestaurants(filteredData);
       })
       .catch((error) => console.error(`Error fetching ${category}:`, error));
+  };
+
+  const checkBookmark = async (storeSeq) => {
+    const { userId } = useAuthStore.getState();
+    try {
+      const response = await api.get(`/bookmark/check/${storeSeq}`, {
+        headers: {
+          Authorization: `Bearer ${userId}`,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error checking bookmark:', error);
+      return false;
+    }
   };
 
   useEffect(() => {
@@ -112,17 +122,17 @@ const PopularRestaurants = () => {
   const toggleBookmark = async (e, restaurantId, setRestaurants, restaurants) => {
     e.stopPropagation();
     const { userId } = useAuthStore.getState();
-  
+
     // 북마크 추가/삭제를 위한 bookmark 객체 생성
     const bookmark = {
       userId,
       storeSeq: restaurantId,
     };
-  
+
     try {
       // API 호출: 북마크 추가/삭제
-      const response = await api.post(`/bookmark/add`, bookmark);
-  
+      const response = await api.post(`/bookmark/toggle`, bookmark);
+
       if (response.status === 200) {
         // 성공적으로 북마크 상태가 변경된 경우
         const updatedRestaurants = restaurants.map((restaurant) =>
@@ -138,8 +148,6 @@ const PopularRestaurants = () => {
       console.error('Error toggling bookmark:', error);
     }
   };
-  
-  
 
   const renderRestaurantCard = (restaurant, restaurants, setRestaurants) => (
     <div
@@ -157,7 +165,7 @@ const PopularRestaurants = () => {
         <div
           className="img"
           style={{
-            backgroundImage: `url(${restaurant.photos && restaurant.photos.length > 0 ? restaurant.photos[0].imageUrl : 'defaultImageUrl'})`,
+            backgroundImage: `url(${restaurant.photos && restaurant.photos.length > 0 ? restaurant.photos[0].imageUrl : defaultImage})`,
           }}
         ></div>
       </div>
@@ -242,7 +250,7 @@ const PopularRestaurants = () => {
       <div id="western" className="popular-restaurants container gutter-sm">
         <div className="section-header-wrap">
           <h2 className="section-header">카페</h2>
-          <button className="btn-more" onClick={() => handleMoreClick('카페,디저트,양식')}>
+          <button className="btn-more" onClick={() => handleMoreClick('카페,디저트')}>
             더보기
           </button>
         </div>
